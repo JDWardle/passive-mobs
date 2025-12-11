@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.jdwardle.passivemobs;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -25,22 +25,22 @@ import net.neoforged.neoforge.common.NeoForge;
 import java.util.function.Supplier;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
-@Mod(ExampleMod.MODID)
-public class ExampleMod {
+@Mod(PassiveMobs.MODID)
+public class PassiveMobs {
     // Define mod id in a common place for everything to reference
-    public static final String MODID = "examplemod";
+    public static final String MODID = "passivemobs";
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
 
     // Holds all attachment types for this mod.
-    private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, ExampleMod.MODID);
+    private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, PassiveMobs.MODID);
 
     // Defines the difficulty attachment type to be used on players.
     public static final Supplier<AttachmentType<PlayerSettings>> PLAYER_SETTINGS = ATTACHMENT_TYPES.register(
         "player_settings", () -> AttachmentType.serializable(PlayerSettings::new).copyOnDeath().build()
     );
 
-    public ExampleMod(IEventBus modEventBus, ModContainer modContainer) {
+    public PassiveMobs(IEventBus modEventBus, ModContainer modContainer) {
         // Register the Deferred Register to the mod event bus so attachment
         // types get registered.
         ATTACHMENT_TYPES.register(modEventBus);

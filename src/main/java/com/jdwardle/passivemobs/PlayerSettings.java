@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.jdwardle.passivemobs;
 
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;

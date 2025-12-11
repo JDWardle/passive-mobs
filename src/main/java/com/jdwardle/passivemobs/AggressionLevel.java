@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.jdwardle.passivemobs;
 
 public enum AggressionLevel {
     PASSIVE, NORMAL;

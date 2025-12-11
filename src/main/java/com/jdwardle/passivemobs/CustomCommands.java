@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.jdwardle.passivemobs;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -36,7 +36,7 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerSettings playerSettings = source.getPlayerOrException().getData(ExampleMod.PLAYER_SETTINGS);
+        PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
 
         AggressionLevel level;
         try {
@@ -59,7 +59,7 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerSettings playerSettings = source.getPlayerOrException().getData(ExampleMod.PLAYER_SETTINGS);
+        PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
 
         source.sendSuccess(() -> Component.literal("Aggression level: " + playerSettings.getAggressionLevel().toString()), false);
         return 1;

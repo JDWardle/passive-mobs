@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.jdwardle.passivemobs;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -11,7 +11,7 @@ public class Config {
 
     public static final ModConfigSpec.ConfigValue<Integer> DEFAULT_DEAGGRO_TICKS = BUILDER
             .comment("The number of player ticks it takes to remove the aggressive flag from a player")
-            .defineInRange("defaultDeaggroTicks", 1000, 0, Integer.MAX_VALUE);
+            .defineInRange("deaggroTicks", 1000, 0, Integer.MAX_VALUE);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 }
