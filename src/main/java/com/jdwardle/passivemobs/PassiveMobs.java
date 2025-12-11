@@ -7,6 +7,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -22,6 +23,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.neoforge.common.NeoForge;
 
+import java.util.HashMap;
 import java.util.function.Supplier;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
@@ -31,6 +33,8 @@ public class PassiveMobs {
     public static final String MODID = "passivemobs";
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
+
+    private final HashMap<String, PlayerManager> playerManagers = new HashMap<>();
 
     // Holds all attachment types for this mod.
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, PassiveMobs.MODID);
@@ -58,13 +62,27 @@ public class PassiveMobs {
     }
 
     @SubscribeEvent
-    public void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+    public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getEntity();
         PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-        // TODO: This might be better to track on a player manager class instead of storing it.
-        playerSettings.setAggressiveTimestamp(0);
-        playerSettings.setAggressive(false);
-        LOGGER.info("Player {} aggro Level: {}", player.getDisplayName(), playerSettings.getAggressionLevel());
+
+        playerManagers.put(player.getStringUUID(), new PlayerManager(player));
+
+        LOGGER.info("Player {} aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
+    }
+
+    @SubscribeEvent
+    public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        Player player = event.getEntity();
+        playerManagers.remove(player.getStringUUID());
+    }
+
+    // Need to recreate the player manager whenever a player respawns to point
+    // to the new player entity.
+    @SubscribeEvent
+    public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        Player player = event.getEntity();
+        playerManagers.replace(player.getStringUUID(), new PlayerManager(player));
     }
 
     // Handles resetting the player aggression level after the configured number
@@ -72,16 +90,8 @@ public class PassiveMobs {
     @SubscribeEvent
     public void onPrePlayerTick(PlayerTickEvent.Pre event) {
         Player player = event.getEntity();
-        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-        if (!playerSettings.isAggressive()) {
-            return;
-        }
 
-        if (player.tickCount - playerSettings.getAggressiveTimestamp() > Config.DEFAULT_DEAGGRO_TICKS.get()) {
-            playerSettings.setAggressive(false);
-
-            LOGGER.info("Player {} is no longer aggressive!", player.getDisplayName().getString());
-        }
+        playerManagers.get(player.getStringUUID()).tick();
     }
 
     // Handles setting a player to aggressive if they attack a mob. This will
@@ -95,11 +105,13 @@ public class PassiveMobs {
         // If the damage source was a player and the target was a monster, set
         // the player to aggressive.
         if (damageSource instanceof Player player && damageTarget instanceof Monster) {
-            PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-            playerSettings.setAggressive(true);
-            playerSettings.setAggressiveTimestamp(player.tickCount);
+            playerManagers.get(player.getStringUUID()).setPlayerAggressive(true);
+        }
 
-            LOGGER.info("Player {} is now aggressive!", player.getDisplayName().getString());
+        if (damageTarget instanceof Player player) {
+            if (!playerManagers.get(player.getStringUUID()).canBeDamaged()) {
+                event.setCanceled(true);
+            }
         }
     }
 
@@ -114,7 +126,7 @@ public class PassiveMobs {
         Entity newTarget = event.getOriginalAboutToBeSetTarget();
 
         // Behave normally for non-monsters entities.
-        if (!(entity instanceof Monster monster)) {
+        if (!(entity instanceof Monster)) {
             return;
         }
 
@@ -123,20 +135,9 @@ public class PassiveMobs {
             return;
         }
 
-        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-
-        // Non-passive player targeting works without any changes.
-        if (!playerSettings.getAggressionLevel().equals(AggressionLevel.PASSIVE)) {
-            return;
+        if (!playerManagers.get(player.getStringUUID()).canBeTargeted()) {
+            event.setNewAboutToBeSetTarget(null);
         }
-
-        // Aggressive passive players will be targeted like normal.
-        if (playerSettings.isAggressive()) {
-            return;
-        }
-
-        // Disable monster targeting for passive players.
-        event.setNewAboutToBeSetTarget(null);
     }
 
     @SubscribeEvent
