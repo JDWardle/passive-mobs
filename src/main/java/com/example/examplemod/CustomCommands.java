@@ -38,14 +38,14 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerDifficulty playerDifficulty = source.getPlayerOrException().getData(ExampleMod.DIFFICULTY);
+        PlayerAttachment playerAttachment = source.getPlayerOrException().getData(ExampleMod.PLAYER_ATTACHMENT);
 
         if (!DIFFICULTIES.contains(difficulty)) {
             source.sendFailure(Component.literal("Invalid difficulty"));
             return 0;
         }
 
-        playerDifficulty.setDifficulty(difficulty);
+        playerAttachment.setDifficulty(difficulty);
 
         source.sendSuccess(() -> Component.literal("Difficulty set to " + difficulty), false);
         return 1;
@@ -58,9 +58,9 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerDifficulty playerDifficulty = source.getPlayerOrException().getData(ExampleMod.DIFFICULTY);
+        PlayerAttachment playerAttachment = source.getPlayerOrException().getData(ExampleMod.PLAYER_ATTACHMENT);
 
-        source.sendSuccess(() -> Component.literal("Difficulty: " + playerDifficulty.getDifficulty()), false);
+        source.sendSuccess(() -> Component.literal("Difficulty: " + playerAttachment.getDifficulty()), false);
         return 1;
     }
 }
