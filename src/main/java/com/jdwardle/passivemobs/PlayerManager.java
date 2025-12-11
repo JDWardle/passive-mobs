@@ -53,6 +53,9 @@ public class PlayerManager {
             case AggressionLevel.PASSIVE -> {
                 return isPlayerAggressive();
             }
+            case AggressionLevel.PEACEFUL -> {
+                return false;
+            }
         }
 
         return false;
@@ -63,6 +66,9 @@ public class PlayerManager {
         switch (this.playerSettings.getAggressionLevel()) {
             case AggressionLevel.NORMAL, AggressionLevel.PASSIVE -> {
                 return true;
+            }
+            case AggressionLevel.PEACEFUL -> {
+                return false;
             }
         }
 

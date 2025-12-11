@@ -29,6 +29,13 @@ public class CustomCommands {
         return builder.buildFuture();
     }
 
+    private static CompletableFuture<Suggestions> suggestPlayers(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        CommandSourceStack source = context.getSource();
+
+        Arrays.stream(source.getServer().getPlayerNames()).forEach(builder::suggest);
+        return builder.buildFuture();
+    }
+
     public static int setPlayerAggressionLevel(CommandContext<CommandSourceStack> context, String aggressionLevel) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 

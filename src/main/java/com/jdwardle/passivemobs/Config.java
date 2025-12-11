@@ -6,7 +6,7 @@ public class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.ConfigValue<String> DEFAULT_AGGRESSION_LEVEL = BUILDER
-            .comment("The default aggression level for new players")
+            .comment("The default aggression level for new players (normal|passive|peaceful)")
             .define("defaultAggressionLevel", AggressionLevel.PASSIVE.toString());
 
     public static final ModConfigSpec.ConfigValue<Integer> DEFAULT_DEAGGRO_TICKS = BUILDER
