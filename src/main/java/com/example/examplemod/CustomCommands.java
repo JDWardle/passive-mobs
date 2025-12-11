@@ -10,57 +10,58 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
-import java.util.List;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 public class CustomCommands {
-    public static final List<String> DIFFICULTIES = List.of("peaceful", "hard");
-
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("player-difficulty")
-            .executes(CustomCommands::getPlayerDifficulty)
-            .then(Commands.argument("difficulty", StringArgumentType.string())
-                    .suggests(CustomCommands::suggestDifficulty)
-                    .executes(context -> setPlayerDifficulty(context, context.getArgument("difficulty", String.class)))
+        dispatcher.register(Commands.literal("aggression")
+            .executes(CustomCommands::getPlayerAggressionLevel)
+            .then(Commands.argument("level", StringArgumentType.string())
+                    .suggests(CustomCommands::suggestLevel)
+                    .executes(context -> setPlayerAggressionLevel(context, context.getArgument("level", String.class)))
             )
         );
     }
 
-    private static CompletableFuture<Suggestions> suggestDifficulty(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        DIFFICULTIES.forEach(builder::suggest);
+    private static CompletableFuture<Suggestions> suggestLevel(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        Arrays.stream(AggressionLevel.values()).map(AggressionLevel::toString).forEach(builder::suggest);
         return builder.buildFuture();
     }
 
-    public static int setPlayerDifficulty(CommandContext<CommandSourceStack> context, String difficulty) throws CommandSyntaxException {
+    public static int setPlayerAggressionLevel(CommandContext<CommandSourceStack> context, String aggressionLevel) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
         if (!source.isPlayer()) {
             return 0;
         }
 
-        PlayerAttachment playerAttachment = source.getPlayerOrException().getData(ExampleMod.PLAYER_ATTACHMENT);
+        PlayerSettings playerSettings = source.getPlayerOrException().getData(ExampleMod.PLAYER_SETTINGS);
 
-        if (!DIFFICULTIES.contains(difficulty)) {
-            source.sendFailure(Component.literal("Invalid difficulty"));
+        AggressionLevel level;
+        try {
+            level = AggressionLevel.getLevel(aggressionLevel);
+        } catch (IllegalStateException e) {
+            source.sendFailure(Component.literal("Invalid aggression level"));
             return 0;
         }
 
-        playerAttachment.setDifficulty(difficulty);
+        playerSettings.setAggressionLevel(level);
 
-        source.sendSuccess(() -> Component.literal("Difficulty set to " + difficulty), false);
+        source.sendSuccess(() -> Component.literal("Aggression level set to " + level.toString()), false);
         return 1;
     }
 
-    public static int getPlayerDifficulty(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    public static int getPlayerAggressionLevel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
         if (!source.isPlayer()) {
             return 0;
         }
 
-        PlayerAttachment playerAttachment = source.getPlayerOrException().getData(ExampleMod.PLAYER_ATTACHMENT);
+        PlayerSettings playerSettings = source.getPlayerOrException().getData(ExampleMod.PLAYER_SETTINGS);
 
-        source.sendSuccess(() -> Component.literal("Difficulty: " + playerAttachment.getDifficulty()), false);
+        source.sendSuccess(() -> Component.literal("Aggression level: " + playerSettings.getAggressionLevel().toString()), false);
         return 1;
     }
 }
