@@ -40,7 +40,7 @@ public class PassiveMobs {
 
     // Defines the difficulty attachment type to be used on players.
     public static final Supplier<AttachmentType<PlayerSettings>> PLAYER_SETTINGS = ATTACHMENT_TYPES.register(
-        "player_settings", () -> AttachmentType.serializable(PlayerSettings::new).copyOnDeath().build()
+            "player_settings", () -> AttachmentType.serializable(PlayerSettings::new).copyOnDeath().build()
     );
 
     public PassiveMobs(IEventBus modEventBus, ModContainer modContainer) {
