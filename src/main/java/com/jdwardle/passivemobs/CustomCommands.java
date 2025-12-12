@@ -16,7 +16,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class CustomCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("myaggression")
+        dispatcher.register(Commands.literal("myaggression").
+                requires(source -> source.isPlayer() && source.hasPermission(0))
                 .executes(CustomCommands::getMyAggressionLevel)
                 .then(Commands.argument("level", StringArgumentType.string())
                         .suggests(CustomCommands::suggestLevel)
@@ -25,6 +26,7 @@ public class CustomCommands {
         );
 
         dispatcher.register(Commands.literal("aggression")
+                .requires(source -> source.hasPermission(1))
                 .then(Commands.argument("player", StringArgumentType.string())
                         .suggests(CustomCommands::suggestPlayers)
                         .executes(context -> getPlayerAggressionLevel(context, context.getArgument("player", String.class)))
@@ -51,10 +53,6 @@ public class CustomCommands {
     public static int setMyAggressionLevel(CommandContext<CommandSourceStack> context, String aggressionLevel) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
-        if (!source.isPlayer()) {
-            return 0;
-        }
-
         PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
 
         return setAggressionLevel(aggressionLevel, source, playerSettings);
@@ -62,10 +60,6 @@ public class CustomCommands {
 
     public static int getMyAggressionLevel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
-
-        if (!source.isPlayer()) {
-            return 0;
-        }
 
         PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
 
