@@ -1,6 +1,16 @@
 name: Build
 
-on: [push, pull_request]
+permissions:
+  # Needed for the softprops/action-gh-release action to update releases.
+  contents: write
+
+on:
+  push:
+    tags:
+      - "*"
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch: { }
 
 jobs:
   build:
@@ -28,3 +38,16 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/libs/
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            build/libs/*
