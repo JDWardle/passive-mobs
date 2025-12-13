@@ -29,6 +29,8 @@ import java.util.function.Supplier;
 public class PassiveMobs {
     // Define mod id in a common place for everything to reference
     public static final String MODID = "passivemobs";
+    public static final String VERSION = "1.0.0";
+
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -57,6 +59,8 @@ public class PassiveMobs {
         // Register our mod's ModConfigSpec so that FML can create and load the
         // config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        LOGGER.info("Passive Mobs loaded version {}!", VERSION);
     }
 
     @SubscribeEvent
