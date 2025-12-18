@@ -17,6 +17,7 @@ public class PlayerSettings implements ValueIOSerializable {
 
     PlayerSettings() {
         this.aggressionLevel = AggressionLevel.getLevel(Config.DEFAULT_AGGRESSION_LEVEL.get());
+        this.version = CURRENT_VERSION;
     }
 
     public AggressionLevel getAggressionLevel() {
