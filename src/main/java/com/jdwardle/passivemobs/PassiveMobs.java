@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public class PassiveMobs {
     // Define mod id in a common place for everything to reference
     public static final String MODID = "passivemobs";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
 
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
@@ -63,6 +63,7 @@ public class PassiveMobs {
         LOGGER.info("Passive Mobs loaded version {}!", VERSION);
     }
 
+    // Set up the player manager for the user that just logged in.
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getEntity();
@@ -70,9 +71,10 @@ public class PassiveMobs {
 
         playerManagers.put(player.getStringUUID(), new PlayerManager(player));
 
-        LOGGER.info("Player {} aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
+        LOGGER.debug("Player {} joined with aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
     }
 
+    // Clean up the tracked player manager for the logged out player.
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getEntity();
@@ -87,13 +89,15 @@ public class PassiveMobs {
         playerManagers.replace(player.getStringUUID(), new PlayerManager(player));
     }
 
-    // Handles resetting the player aggression level after the configured number
-    // of ticks have passed since the player was last aggressive.
+    // Handles progressing the player's aggression timer.
     @SubscribeEvent
     public void onPrePlayerTick(PlayerTickEvent.Pre event) {
         Player player = event.getEntity();
 
-        playerManagers.get(player.getStringUUID()).tick();
+        PlayerManager manager = playerManagers.get(player.getStringUUID());
+        if (manager != null) {
+            manager.tick();
+        }
     }
 
     // Handles setting a player to aggressive if they attack a mob. This will
@@ -107,13 +111,26 @@ public class PassiveMobs {
         // If the damage source was a player and the target was a monster, set
         // the player to aggressive.
         if (damageSource instanceof Player player && damageTarget instanceof Monster) {
-            playerManagers.get(player.getStringUUID()).setPlayerAggressive(true);
+            PlayerManager manager = playerManagers.get(player.getStringUUID());
+            if (manager != null) {
+                manager.setPlayerAggressive(true);
+            } else {
+                LOGGER.warn("Damaging player {} has no manager!", player.getDisplayName().getString());
+            }
         }
 
+        // If the target is a player and the damage source is a monster, check
+        // if they can damage the player.
         if (damageTarget instanceof Player player) {
-            if (!playerManagers.get(player.getStringUUID()).canBeDamaged()) {
-                event.setCanceled(true);
+            PlayerManager manager = playerManagers.get(player.getStringUUID());
+
+            if (manager == null) {
+                LOGGER.warn("Damaged player {} has no manager!", player.getDisplayName().getString());
+                return;
             }
+
+            // Cancel the event if the player cannot be damaged.
+            event.setCanceled(!manager.canBeDamaged());
         }
     }
 
@@ -137,7 +154,15 @@ public class PassiveMobs {
             return;
         }
 
-        if (!playerManagers.get(player.getStringUUID()).canBeTargeted()) {
+        PlayerManager manager = playerManagers.get(player.getStringUUID());
+
+        if (manager == null) {
+            LOGGER.warn("Targeted player {} has no manager!", player.getDisplayName().getString());
+            return;
+        }
+
+        // If the player cannot be targeted, set the monster's target to null.
+        if (!manager.canBeTargeted()) {
             event.setNewAboutToBeSetTarget(null);
         }
     }
