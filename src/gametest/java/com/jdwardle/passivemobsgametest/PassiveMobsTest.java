@@ -76,12 +76,7 @@ public class PassiveMobsTest {
             enabledByDefault = true
     )
     static void normalMobTargetingTest(final DynamicTest test) {
-        var ref = new Object() {
-            Zombie entity;
-        };
-
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
-                // Normal player test
                 .thenExecute(player -> {
                     helper.setNight();
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
@@ -90,7 +85,6 @@ public class PassiveMobsTest {
                     settings.setAggressionLevel(AggressionLevel.NORMAL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
-                    ref.entity = entity;
 
                     helper.assertTrue(entity.getTarget() == null, "entity initial target should be null");
 
@@ -98,17 +92,12 @@ public class PassiveMobsTest {
 
                     helper.assertTrue(entity.getTarget() == player, "entity target should be player");
 
-                    ref.entity.doHurtTarget(helper.getLevel(), player);
+                    entity.doHurtTarget(helper.getLevel(), player);
+
+                    helper.assertTrue(player.getLastHurtByMob() == entity, "player should have been damaged by entity");
+
+                    entity.remove(Entity.RemovalReason.DISCARDED);
                 })
-                .thenIdle(10)
-                .thenExecute(player -> {
-                    helper.assertTrue(ref.entity.getTarget() == player, "entity target should still be player");
-                    // getLastHurtByMob() is always null for this test. Not sure
-                    // why since it works just fine in other tests. Damage
-                    // source shows the correct entity.
-                    helper.assertTrue(player.getLastDamageSource().getEntity() == ref.entity, "player should have been damaged by entity");
-                })
-                .thenExecute(player -> ref.entity.remove(Entity.RemovalReason.DISCARDED))
                 .thenExecute(test::pass)
                 .thenSucceed());
     }
@@ -121,10 +110,6 @@ public class PassiveMobsTest {
             enabledByDefault = true
     )
     static void peacefulMobTargetingTest(final DynamicTest test) {
-        var ref = new Object() {
-            Zombie entity;
-        };
-
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
                 .thenExecute(player -> {
                     helper.setNight();
@@ -134,25 +119,28 @@ public class PassiveMobsTest {
                     settings.setAggressionLevel(AggressionLevel.PEACEFUL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
-                    ref.entity = entity;
 
                     helper.assertTrue(entity.getTarget() == null, "entity initial target should be null");
 
                     entity.setTarget(player);
 
                     helper.assertTrue(entity.getTarget() == null, "entity target should remain null");
-                })
-                .thenIdle(10)
-                .thenExecute(player -> {
-                    helper.assertTrue(ref.entity.getTarget() == null, "entity target should still be null");
 
-                    ref.entity.doHurtTarget(helper.getLevel(), player);
-                })
-                .thenIdle(10)
-                .thenExecute(player -> {
+                    entity.doHurtTarget(helper.getLevel(), player);
+
                     helper.assertTrue(player.getLastHurtByMob() == null, "player should not have been hurt by entity");
+
+                    // No targeting or damage from mobs even if the player
+                    // becomes aggressive.
+                    player.attack(entity);
+
+                    entity.setTarget(player);
+
+                    helper.assertTrue(entity.getTarget() == null, "entity target should remain null");
+                    helper.assertTrue(player.getLastHurtByMob() == null, "player should not have been hurt by entity");
+
+                    entity.remove(Entity.RemovalReason.DISCARDED);
                 })
-                .thenExecute(player -> ref.entity.remove(Entity.RemovalReason.DISCARDED))
                 .thenExecute(test::pass)
                 .thenSucceed());
     }
@@ -165,10 +153,6 @@ public class PassiveMobsTest {
             enabledByDefault = true
     )
     static void passiveMobTargetingTest(final DynamicTest test) {
-        var ref = new Object() {
-            Zombie entity;
-        };
-
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
                 .thenExecute(player -> {
                     helper.setNight();
@@ -179,34 +163,27 @@ public class PassiveMobsTest {
                     settings.setAggressionLevel(AggressionLevel.PASSIVE);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
-                    ref.entity = entity;
 
                     helper.assertTrue(entity.getTarget() == null, "entity initial target should be null");
 
                     entity.setTarget(player);
 
                     helper.assertTrue(entity.getTarget() == null, "entity target should remain null");
-                    ref.entity.doHurtTarget(helper.getLevel(), player);
-                })
-                .thenIdle(10)
-                .thenExecute(player -> {
+                    entity.doHurtTarget(helper.getLevel(), player);
+
                     // Passive difficulty allows mob damage but not targeting.
-                    helper.assertTrue(player.getLastHurtByMob() == ref.entity, "player should have been hurt by entity");
-                    helper.assertTrue(ref.entity.getTarget() == null, "entity target should still be null");
+                    helper.assertTrue(player.getLastHurtByMob() == entity, "player should have been hurt by entity");
+                    helper.assertTrue(entity.getTarget() == null, "entity target should still be null");
 
-                    player.attack(ref.entity);
-                })
-                .thenIdle(10)
-                .thenExecute(player -> {
-                    ref.entity.setTarget(player);
+                    // Player becomes aggressive so should become targetable by
+                    // the entity.
+                    player.attack(entity);
+                    entity.setTarget(player);
 
-                    helper.assertTrue(ref.entity.getTarget() == player, "entity target should player");
+                    helper.assertTrue(entity.getTarget() == player, "entity target should player");
+
+                    entity.remove(Entity.RemovalReason.DISCARDED);
                 })
-                .thenIdle(10)
-                .thenExecute(player -> {
-                    helper.assertTrue(ref.entity.getTarget() == player, "entity target should still be player");
-                })
-                .thenExecute(player -> ref.entity.remove(Entity.RemovalReason.DISCARDED))
                 // TODO: Figure out deaggro testing.
                 .thenExecute(test::pass)
                 .thenSucceed());
