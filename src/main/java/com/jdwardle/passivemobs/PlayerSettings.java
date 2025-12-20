@@ -5,8 +5,8 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.common.util.ValueIOSerializable;
 
 public class PlayerSettings implements ValueIOSerializable {
-    private static final String AGGRESSION_LEVEL_KEY = "aggressionLevel";
-    private static final String VERSION_KEY = "version";
+    public static final String AGGRESSION_LEVEL_KEY = "aggressionLevel";
+    public static final String VERSION_KEY = "version";
 
     // Allows for migrating the data model of PlayerSettings to a different
     // version if needed.

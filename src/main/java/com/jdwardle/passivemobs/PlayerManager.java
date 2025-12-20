@@ -1,26 +1,26 @@
 package com.jdwardle.passivemobs;
 
-import net.minecraft.world.entity.player.Player;
-
-import static com.jdwardle.passivemobs.PassiveMobs.PLAYER_SETTINGS;
-
 public class PlayerManager {
     // This tracks if a player should appear aggressive to mobs or not. The
     // behavior of when this is set to true is determined by the players
     // configured aggression level.
     private Boolean aggressive;
 
+    private int tickCount;
+
+    private final int deaggroTicks;
+
     // This tracks the last time the player was set to aggressive.
     private int lastAggressionTimestamp;
 
-    private final Player player;
-    private final PlayerSettings playerSettings;
-
-    PlayerManager(Player player) {
-        this.player = player;
-        this.playerSettings = player.getData(PLAYER_SETTINGS);
+    PlayerManager(int deaggroTicks) {
+        this.deaggroTicks = deaggroTicks;
         this.aggressive = false;
         this.lastAggressionTimestamp = 0;
+    }
+
+    PlayerManager() {
+        this(Config.DEFAULT_DEAGGRO_TICKS.get());
     }
 
     public Boolean isPlayerAggressive() {
@@ -31,8 +31,17 @@ public class PlayerManager {
         this.aggressive = isAggressive;
 
         if (this.aggressive) {
-            this.lastAggressionTimestamp = player.tickCount;
+            this.lastAggressionTimestamp = tickCount;
         }
+    }
+
+    public void resetAggression() {
+        this.aggressive = false;
+        this.lastAggressionTimestamp = 0;
+    }
+
+    public int getLastAggressionTimestamp() {
+        return this.lastAggressionTimestamp;
     }
 
     // This handles the aggression timer. Called on some sort of regular
@@ -40,23 +49,21 @@ public class PlayerManager {
     // lastAggressionTimestamp to determine if a player should go from
     // aggressive to non-aggressive.
     public void tick() {
-        if (player.isDeadOrDying()) {
-            return;
-        }
+        this.tickCount++;
 
         if (!isPlayerAggressive()) {
             return;
         }
 
-        if ((player.tickCount - lastAggressionTimestamp) >= Config.DEFAULT_DEAGGRO_TICKS.get()) {
+        if ((tickCount - lastAggressionTimestamp) >= this.deaggroTicks) {
             setPlayerAggressive(false);
         }
     }
 
     // Returns true if the player can be targeted by mobs. Based on their
     // current aggression state and configured aggression level.
-    public Boolean canBeTargeted() {
-        switch (this.playerSettings.getAggressionLevel()) {
+    public Boolean canBeTargeted(AggressionLevel aggressionLevel) {
+        switch (aggressionLevel) {
             case AggressionLevel.NORMAL -> {
                 return true;
             }
@@ -73,8 +80,8 @@ public class PlayerManager {
 
     // Returns true if the player can be damaged by mobs. Based on their current
     // aggression state and configured aggression level.
-    public Boolean canBeDamaged() {
-        switch (this.playerSettings.getAggressionLevel()) {
+    public Boolean canBeDamaged(AggressionLevel aggressionLevel) {
+        switch (aggressionLevel) {
             case AggressionLevel.NORMAL, AggressionLevel.PASSIVE -> {
                 return true;
             }
