@@ -28,9 +28,15 @@ base {
 // Mojang ships Java 21 to end users in 1.21.10, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+sourceSets {
+    gametest
+}
+
 neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version
+
+    addModdingDependenciesTo sourceSets.gametest
 
     parchment {
         mappingsVersion = project.parchment_mappings_version
@@ -47,13 +53,13 @@ neoForge {
             client()
 
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         // This run config launches GameTestServer and runs all registered gametests, then exits.
@@ -61,7 +67,7 @@ neoForge {
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
             type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         data {
@@ -95,7 +101,11 @@ neoForge {
         // these are used to tell the game which sources are for which mod
         // multi mod projects should define one per mod
         "${mod_id}" {
-            sourceSet(sourceSets.main)
+            sourceSet sourceSets.main
+        }
+
+        "${test_mod_id}" {
+            sourceSet sourceSets.gametest
         }
     }
 }
@@ -133,6 +143,16 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // This runtimeOnly dependency is needed to make game tests work for some
+    // reason.
+    runtimeOnly "net.neoforged:testframework:${project.neo_version}"
+
+    gametestImplementation "net.neoforged:testframework:${project.neo_version}"
+    gametestImplementation sourceSets.main.output
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -159,6 +179,27 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
 neoForge.ideSyncTask generateModMetadata
+
+var generatedModGameTestMetadata = tasks.register("generateModGameTestMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            mod_id                 : test_mod_id,
+            mod_name               : test_mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/gametest/templates"
+    into "build/generated/sources/modTestMetadata"
+}
+
+sourceSets.gametest.resources.srcDir generatedModGameTestMetadata
+neoForge.ideSyncTask generatedModGameTestMetadata
 
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {

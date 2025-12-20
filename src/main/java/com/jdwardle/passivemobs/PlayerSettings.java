@@ -10,7 +10,7 @@ public class PlayerSettings implements ValueIOSerializable {
 
     // Allows for migrating the data model of PlayerSettings to a different
     // version if needed.
-    private static final String CURRENT_VERSION = "1.0.0";
+    public static final String CURRENT_VERSION = "1.0.0";
 
     private AggressionLevel aggressionLevel;
     private String version;
