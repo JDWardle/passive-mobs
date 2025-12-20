@@ -54,13 +54,13 @@ neoForge {
             client()
 
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         // This run config launches GameTestServer and runs all registered gametests, then exits.
@@ -68,7 +68,7 @@ neoForge {
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
             type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.test_mod_id
         }
 
         data {
@@ -105,7 +105,7 @@ neoForge {
             sourceSet sourceSets.main
         }
 
-        'passivemobsgametest' {
+        "${test_mod_id}" {
             sourceSet sourceSets.gametest
         }
     }
@@ -158,8 +158,13 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // This runtimeOnly dependency is needed to make game tests work for some
+    // reason.
     runtimeOnly "net.neoforged:testframework:${project.neo_version}"
+
     gametestImplementation "net.neoforged:testframework:${project.neo_version}"
+    gametestImplementation sourceSets.main.output
 }
 
 test {
@@ -196,8 +201,8 @@ var generatedModGameTestMetadata = tasks.register("generateModGameTestMetadata",
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
-            mod_id                 : 'passivemobsgametest',
-            mod_name               : mod_name,
+            mod_id                 : test_mod_id,
+            mod_name               : test_mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
             mod_authors            : mod_authors,
