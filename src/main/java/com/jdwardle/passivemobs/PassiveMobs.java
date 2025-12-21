@@ -69,7 +69,7 @@ public class PassiveMobs {
         Player player = event.getEntity();
         PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
 
-        playerManagers.put(player.getStringUUID(), new PlayerManager(player));
+        playerManagers.put(player.getStringUUID(), new PlayerManager());
 
         LOGGER.debug("Player {} joined with aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
     }
@@ -86,7 +86,7 @@ public class PassiveMobs {
     @SubscribeEvent
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         Player player = event.getEntity();
-        playerManagers.replace(player.getStringUUID(), new PlayerManager(player));
+        playerManagers.replace(player.getStringUUID(), new PlayerManager());
     }
 
     // Handles progressing the player's aggression timer.
@@ -129,8 +129,10 @@ public class PassiveMobs {
                 return;
             }
 
+            PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
+
             // Cancel the event if the player cannot be damaged.
-            event.setCanceled(!manager.canBeDamaged());
+            event.setCanceled(!manager.canBeDamaged(playerSettings.getAggressionLevel()));
         }
     }
 
@@ -161,8 +163,10 @@ public class PassiveMobs {
             return;
         }
 
+        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
+
         // If the player cannot be targeted, set the monster's target to null.
-        if (!manager.canBeTargeted()) {
+        if (!manager.canBeTargeted(playerSettings.getAggressionLevel())) {
             event.setNewAboutToBeSetTarget(null);
         }
     }
