@@ -5,9 +5,13 @@ import com.jdwardle.passivemobs.Config;
 import com.jdwardle.passivemobs.PassiveMobs;
 import com.jdwardle.passivemobs.PlayerSettings;
 
+import com.mojang.brigadier.ParseResults;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
@@ -21,6 +25,7 @@ import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.conf.ClientConfiguration;
 import net.neoforged.testframework.conf.FrameworkConfiguration;
 import net.neoforged.testframework.gametest.EmptyTemplate;
+import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
 import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.impl.MutableTestFramework;
 import org.lwjgl.glfw.GLFW;
@@ -72,6 +77,40 @@ public class PassiveMobsTest {
     @GameTest(template = "empty")
     @TestHolder(
             description = "Ensure that mobs target and hurt players on normal difficulty",
+            title = "commandtest",
+            enabledByDefault = true
+    )
+    static void commandTest(final DynamicTest test) {
+        test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
+                .thenExecute(player -> {
+                    try {
+                        ParseResults<CommandSourceStack> results = helper.getLevel().getServer().getCommands().getDispatcher().parse("myaggression", player.createCommandSourceStack());
+                        int output = helper.getLevel().getServer().getCommands().getDispatcher().execute(results);
+                    } catch (CommandSyntaxException e) {
+                        test.fail(e.getMessage());
+                    }
+                })
+                .thenSucceed());
+    }
+
+    private static void setPlayerAggressionLevel(ExtendedGameTestHelper helper, ServerPlayer player, AggressionLevel aggressionLevel) {
+        try {
+            ParseResults<CommandSourceStack> results = helper.getLevel().getServer().getCommands().getDispatcher().parse("myaggression " + aggressionLevel.toString(), player.createCommandSourceStack());
+
+            helper.assertTrue(results.getContext().getNodes().size() == 2, "command should only have one node");
+
+            int output = helper.getLevel().getServer().getCommands().getDispatcher().execute(results);
+
+            helper.assertTrue(output == 1, "command should return 1");
+        } catch (CommandSyntaxException e) {
+            helper.fail(e.getMessage());
+        }
+    }
+
+    @EmptyTemplate(floor = true)
+    @GameTest(template = "empty")
+    @TestHolder(
+            description = "Ensure that mobs target and hurt players on normal difficulty",
             title = "normal_mob_targeting",
             enabledByDefault = true
     )
@@ -81,8 +120,7 @@ public class PassiveMobsTest {
                     helper.setNight();
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.NORMAL);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.NORMAL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
@@ -115,8 +153,7 @@ public class PassiveMobsTest {
                     helper.setNight();
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.PEACEFUL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
@@ -159,8 +196,7 @@ public class PassiveMobsTest {
 
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.PASSIVE);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.PASSIVE);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
