@@ -1,47 +1,52 @@
 package com.jdwardle.passivemobs;
 
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Monster;
+
+import javax.annotation.Nullable;
+
 public class PlayerManager {
-    // This tracks if a player should appear aggressive to mobs or not. The
-    // behavior of when this is set to true is determined by the players
+    // This tracks if a player should appear aggressive to mobs or not. Entity
+    // behavior when this is set to true is determined by the players'
     // configured aggression level.
     private Boolean aggressive;
 
+    // The players configured aggression level.
+    private AggressionLevel aggressionLevel;
+
     private int tickCount;
 
+    // The number of ticks an aggressive player should remain aggressive.
     private final int deaggroTicks;
 
-    // This tracks the last time the player was set to aggressive.
-    private int lastAggressionTimestamp;
+    // This tracks the last tick that the player was set to aggressive.
+    private int lastAggressionTick;
 
-    PlayerManager(int deaggroTicks) {
+    PlayerManager(AggressionLevel aggressionLevel, int deaggroTicks) {
         this.deaggroTicks = deaggroTicks;
         this.aggressive = false;
-        this.lastAggressionTimestamp = 0;
+        this.lastAggressionTick = 0;
+        this.aggressionLevel = aggressionLevel;
     }
 
-    PlayerManager() {
-        this(Config.DEFAULT_DEAGGRO_TICKS.get());
+    PlayerManager(AggressionLevel aggressionLevel) {
+        this(aggressionLevel, Config.DEFAULT_DEAGGRO_TICKS.get());
     }
 
     public Boolean isPlayerAggressive() {
         return this.aggressive;
     }
 
-    public void setPlayerAggressive(Boolean isAggressive) {
+    private void setPlayerAggressive(Boolean isAggressive) {
         this.aggressive = isAggressive;
 
         if (this.aggressive) {
-            this.lastAggressionTimestamp = tickCount;
+            this.lastAggressionTick = tickCount;
         }
     }
 
-    public void resetAggression() {
-        this.aggressive = false;
-        this.lastAggressionTimestamp = 0;
-    }
-
-    public int getLastAggressionTimestamp() {
-        return this.lastAggressionTimestamp;
+    public void setAggressionLevel(AggressionLevel aggressionLevel) {
+        this.aggressionLevel = aggressionLevel;
     }
 
     // This handles the aggression timer. Called on some sort of regular
@@ -55,14 +60,19 @@ public class PlayerManager {
             return;
         }
 
-        if ((tickCount - lastAggressionTimestamp) >= this.deaggroTicks) {
+        if ((tickCount - lastAggressionTick) >= this.deaggroTicks) {
             setPlayerAggressive(false);
         }
     }
 
-    // Returns true if the player can be targeted by mobs. Based on their
-    // current aggression state and configured aggression level.
-    public Boolean canBeTargeted(AggressionLevel aggressionLevel) {
+    // Returns true if the player can be targeted by the provided Entity. Based
+    // on their current aggression state and configured aggression level.
+    public Boolean canTargetPlayer(@Nullable Entity targetingEntity) {
+        // Can be targeted by all non-monster mobs without any other conditions.
+        if (!(targetingEntity instanceof Monster)) {
+            return true;
+        }
+
         switch (aggressionLevel) {
             case AggressionLevel.NORMAL -> {
                 return true;
@@ -78,9 +88,14 @@ public class PlayerManager {
         return false;
     }
 
-    // Returns true if the player can be damaged by mobs. Based on their current
-    // aggression state and configured aggression level.
-    public Boolean canBeDamaged(AggressionLevel aggressionLevel) {
+    // Returns true if the player can be hurt by the provided Entity. Based on
+    // their current aggression state and configured aggression level.
+    public Boolean canHurtPlayer(@Nullable Entity damagingEntity) {
+        // Can be damaged by all non-monster mobs without any other conditions.
+        if (!(damagingEntity instanceof Monster)) {
+            return true;
+        }
+
         switch (aggressionLevel) {
             case AggressionLevel.NORMAL, AggressionLevel.PASSIVE -> {
                 return true;
@@ -91,5 +106,15 @@ public class PlayerManager {
         }
 
         return false;
+    }
+
+    // Determines if the player should be set to aggressive based on which type
+    // of entity they damaged.
+    public void playerHurtEntity(@Nullable Entity damagedEntity) {
+        if (!(damagedEntity instanceof Monster)) {
+            return;
+        }
+
+        setPlayerAggressive(true);
     }
 }

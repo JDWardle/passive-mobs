@@ -3,7 +3,6 @@ package com.jdwardle.passivemobs;
 import com.mojang.logging.LogUtils;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -69,7 +68,7 @@ public class PassiveMobs {
         Player player = event.getEntity();
         PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
 
-        playerManagers.put(player.getStringUUID(), new PlayerManager());
+        playerManagers.put(player.getStringUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
 
         LOGGER.debug("Player {} joined with aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
     }
@@ -86,7 +85,9 @@ public class PassiveMobs {
     @SubscribeEvent
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         Player player = event.getEntity();
-        playerManagers.replace(player.getStringUUID(), new PlayerManager());
+        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
+
+        playerManagers.replace(player.getStringUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
     }
 
     // Handles progressing the player's aggression timer.
@@ -110,10 +111,10 @@ public class PassiveMobs {
 
         // If the damage source was a player and the target was a monster, set
         // the player to aggressive.
-        if (damageSource instanceof Player player && damageTarget instanceof Monster) {
+        if (damageSource instanceof Player player) {
             PlayerManager manager = playerManagers.get(player.getStringUUID());
             if (manager != null) {
-                manager.setPlayerAggressive(true);
+                manager.playerHurtEntity(damageTarget);
             } else {
                 LOGGER.warn("Damaging player {} has no manager!", player.getDisplayName().getString());
             }
@@ -129,10 +130,8 @@ public class PassiveMobs {
                 return;
             }
 
-            PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-
             // Cancel the event if the player cannot be damaged.
-            event.setCanceled(!manager.canBeDamaged(playerSettings.getAggressionLevel()));
+            event.setCanceled(!manager.canHurtPlayer(damageSource));
         }
     }
 
@@ -141,17 +140,13 @@ public class PassiveMobs {
     @SubscribeEvent
     public void onLivingChangeTarget(LivingChangeTargetEvent event) {
         Entity entity = event.getEntity();
+
         // Target that this event is originally going to be set will not be
         // modified by setNewAboutToBeSetTarget(). Useful if we ever need to
         // do anything with the original target.
         Entity newTarget = event.getOriginalAboutToBeSetTarget();
 
-        // Behave normally for non-monsters entities.
-        if (!(entity instanceof Monster)) {
-            return;
-        }
-
-        // Behave normally for non-player targets.
+        // Only handle targets that are instances of a Player.
         if (!(newTarget instanceof Player player)) {
             return;
         }
@@ -163,12 +158,12 @@ public class PassiveMobs {
             return;
         }
 
-        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-
-        // If the player cannot be targeted, set the monster's target to null.
-        if (!manager.canBeTargeted(playerSettings.getAggressionLevel())) {
-            event.setNewAboutToBeSetTarget(null);
+        // If the entity can target the player, do nothing different.
+        if (manager.canTargetPlayer(entity)) {
+            return;
         }
+
+        event.setNewAboutToBeSetTarget(null);
     }
 
     @SubscribeEvent
