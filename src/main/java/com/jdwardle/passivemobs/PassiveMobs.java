@@ -20,7 +20,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import org.slf4j.Logger;
 
-import java.util.HashMap;
 import java.util.function.Supplier;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
@@ -32,8 +31,6 @@ public class PassiveMobs {
 
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
-
-    private final HashMap<String, PlayerManager> playerManagers = new HashMap<>();
 
     // Holds all attachment types for this mod.
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, PassiveMobs.MODID);
@@ -68,26 +65,16 @@ public class PassiveMobs {
         Player player = event.getEntity();
         PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
 
-        playerManagers.put(player.getStringUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
+        PlayerManagerStore.computeIfAbsent(player.getUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
 
         LOGGER.debug("Player {} joined with aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
     }
 
-    // Clean up the tracked player manager for the logged out player.
+    // Clean up the tracked player manager for the logged-out player.
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getEntity();
-        playerManagers.remove(player.getStringUUID());
-    }
-
-    // Need to recreate the player manager whenever a player respawns to point
-    // to the new player entity.
-    @SubscribeEvent
-    public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-        Player player = event.getEntity();
-        PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
-
-        playerManagers.replace(player.getStringUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
+        PlayerManagerStore.remove(player.getUUID());
     }
 
     // Handles progressing the player's aggression timer.
@@ -95,10 +82,9 @@ public class PassiveMobs {
     public void onPrePlayerTick(PlayerTickEvent.Pre event) {
         Player player = event.getEntity();
 
-        PlayerManager manager = playerManagers.get(player.getStringUUID());
-        if (manager != null) {
-            manager.tick();
-        }
+        PlayerManagerStore
+                .get(player.getUUID())
+                .ifPresent(PlayerManager::tick);
     }
 
     // Handles setting a player to aggressive if they attack a mob. This will
@@ -112,26 +98,25 @@ public class PassiveMobs {
         // If the damage source was a player and the target was a monster, set
         // the player to aggressive.
         if (damageSource instanceof Player player) {
-            PlayerManager manager = playerManagers.get(player.getStringUUID());
-            if (manager != null) {
-                manager.playerHurtEntity(damageTarget);
-            } else {
-                LOGGER.warn("Damaging player {} has no manager!", player.getDisplayName().getString());
-            }
+            PlayerManagerStore
+                    .get(player.getUUID())
+                    .ifPresentOrElse(manager -> {
+                        manager.playerHurtEntity(damageTarget);
+                    }, () -> {
+                        LOGGER.warn("Damaging player {} has no manager!", player.getDisplayName().getString());
+                    });
         }
 
         // If the target is a player and the damage source is a monster, check
         // if they can damage the player.
         if (damageTarget instanceof Player player) {
-            PlayerManager manager = playerManagers.get(player.getStringUUID());
-
-            if (manager == null) {
-                LOGGER.warn("Damaged player {} has no manager!", player.getDisplayName().getString());
-                return;
-            }
-
-            // Cancel the event if the player cannot be damaged.
-            event.setCanceled(!manager.canHurtPlayer(damageSource));
+            PlayerManagerStore
+                    .get(player.getUUID())
+                    .ifPresentOrElse(manager -> {
+                        event.setCanceled(!manager.canHurtPlayer(damageSource));
+                    }, () -> {
+                        LOGGER.warn("Damaged player {} has no manager!", player.getDisplayName().getString());
+                    });
         }
     }
 
@@ -151,19 +136,17 @@ public class PassiveMobs {
             return;
         }
 
-        PlayerManager manager = playerManagers.get(player.getStringUUID());
-
-        if (manager == null) {
-            LOGGER.warn("Targeted player {} has no manager!", player.getDisplayName().getString());
-            return;
-        }
-
-        // If the entity can target the player, do nothing different.
-        if (manager.canTargetPlayer(entity)) {
-            return;
-        }
-
-        event.setNewAboutToBeSetTarget(null);
+        PlayerManagerStore
+                .get(player.getUUID())
+                .ifPresentOrElse(manager -> {
+                    // Set the new target to null if the player cannot be
+                    // targeted.
+                    if (!manager.canTargetPlayer(entity)) {
+                        event.setNewAboutToBeSetTarget(null);
+                    }
+                }, () -> {
+                    LOGGER.warn("Targeted player {} has no manager!", player.getDisplayName().getString());
+                });
     }
 
     @SubscribeEvent

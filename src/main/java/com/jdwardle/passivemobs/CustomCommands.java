@@ -53,9 +53,7 @@ public class CustomCommands {
     public static int setMyAggressionLevel(CommandContext<CommandSourceStack> context, String aggressionLevel) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
-        PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
-
-        return setAggressionLevel(aggressionLevel, source, playerSettings);
+        return setAggressionLevel(source, source.getPlayerOrException(), aggressionLevel);
     }
 
     public static int getMyAggressionLevel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -76,9 +74,7 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerSettings playerSettings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-
-        return setAggressionLevel(aggressionLevel, source, playerSettings);
+        return setAggressionLevel(source, player, aggressionLevel);
     }
 
     public static int getPlayerAggressionLevel(CommandContext<CommandSourceStack> context, String playerName) {
@@ -96,7 +92,7 @@ public class CustomCommands {
         return 1;
     }
 
-    private static int setAggressionLevel(String aggressionLevel, CommandSourceStack source, PlayerSettings playerSettings) {
+    private static int setAggressionLevel(CommandSourceStack source, Player player, String aggressionLevel) {
         AggressionLevel level;
         try {
             level = AggressionLevel.getLevel(aggressionLevel);
@@ -105,7 +101,10 @@ public class CustomCommands {
             return 0;
         }
 
+        PlayerSettings playerSettings = player.getData(PassiveMobs.PLAYER_SETTINGS);
         playerSettings.setAggressionLevel(level);
+        PlayerManagerStore.get(player.getUUID())
+                .ifPresent(manager -> manager.setAggressionLevel(level));
 
         source.sendSuccess(() -> Component.literal("Aggression level set to " + level.toString()), false);
         return 1;
