@@ -76,7 +76,7 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerSettings playerSettings = source.getPlayerOrException().getData(PassiveMobs.PLAYER_SETTINGS);
+        PlayerSettings playerSettings = player.getData(PassiveMobs.PLAYER_SETTINGS);
 
         return setAggressionLevel(aggressionLevel, source, playerSettings);
     }
