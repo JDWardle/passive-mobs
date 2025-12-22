@@ -46,10 +46,6 @@ public class PlayerManager {
         }
     }
 
-//    public void setAggressionLevel(AggressionLevel aggressionLevel) {
-//        playerSettings.setAggressionLevel(aggressionLevel);
-//    }
-
     // This handles the aggression timer. Called on some sort of regular
     // interval, this will check the player tick count and compare it to their
     // lastAggressionTimestamp to determine if a player should go from

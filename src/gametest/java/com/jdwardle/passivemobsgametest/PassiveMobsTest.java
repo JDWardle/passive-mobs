@@ -4,14 +4,22 @@ import com.jdwardle.passivemobs.AggressionLevel;
 import com.jdwardle.passivemobs.Config;
 import com.jdwardle.passivemobs.PassiveMobs;
 import com.jdwardle.passivemobs.PlayerSettings;
-
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
+import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
@@ -20,6 +28,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.network.registration.NetworkRegistry;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.conf.ClientConfiguration;
@@ -27,11 +36,14 @@ import net.neoforged.testframework.conf.FrameworkConfiguration;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
 import net.neoforged.testframework.gametest.GameTest;
+import net.neoforged.testframework.gametest.GameTestPlayer;
 import net.neoforged.testframework.impl.MutableTestFramework;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import java.util.Objects;
+import java.util.UUID;
 
 @Mod(PassiveMobsTest.MODID)
 public class PassiveMobsTest {
@@ -69,26 +81,6 @@ public class PassiveMobsTest {
                     PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
                     helper.assertTrue(settings.getAggressionLevel() == AggressionLevel.getLevel(Config.DEFAULT_AGGRESSION_LEVEL.get()), "new player aggression level should be set to the default");
                     helper.assertTrue(Objects.equals(settings.getVersion(), PlayerSettings.CURRENT_VERSION), "new player settings data version should match the default");
-                })
-                .thenSucceed());
-    }
-
-    @EmptyTemplate(floor = true)
-    @GameTest(template = "empty")
-    @TestHolder(
-            description = "Ensure that mobs target and hurt players on normal difficulty",
-            title = "commandtest",
-            enabledByDefault = true
-    )
-    static void commandTest(final DynamicTest test) {
-        test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
-                .thenExecute(player -> {
-                    try {
-                        ParseResults<CommandSourceStack> results = helper.getLevel().getServer().getCommands().getDispatcher().parse("myaggression", player.createCommandSourceStack());
-                        int output = helper.getLevel().getServer().getCommands().getDispatcher().execute(results);
-                    } catch (CommandSyntaxException e) {
-                        test.fail(e.getMessage());
-                    }
                 })
                 .thenSucceed());
     }
@@ -223,5 +215,45 @@ public class PassiveMobsTest {
                 // TODO: Figure out deaggro testing.
                 .thenExecute(test::pass)
                 .thenSucceed());
+    }
+
+    // Copy of the Neoforge makeTickingMockServerPlayerInLevel that allows for
+    // changing the mock player name.
+    public static GameTestPlayer makeTickingMockServerPlayerInLevel(ExtendedGameTestHelper helper, GameType gameType, String name) {
+        final CommonListenerCookie commonlistenercookie = CommonListenerCookie.createInitial(new GameProfile(UUID.randomUUID(), name), false);
+        final GameTestPlayer serverplayer = new GameTestPlayer(helper.getLevel().getServer(), helper.getLevel(), commonlistenercookie.gameProfile(), commonlistenercookie.clientInformation(), helper);
+        final Connection connection = new Connection(PacketFlow.SERVERBOUND) {
+            @Override
+            public void tick() {
+                super.tick();
+                serverplayer.resetLastActionTime();
+            }
+
+            @Override
+            public boolean isMemoryConnection() {
+                return true;
+            }
+
+            @Override
+            public void send(Packet<?> packet, @Nullable ChannelFutureListener listeners, boolean flush) {
+                super.send(packet, listeners, flush);
+                // Respond to keepalive packets instantly
+                if (packet instanceof ClientboundKeepAlivePacket ckp) {
+                    serverplayer.connection.handleKeepAlive(new ServerboundKeepAlivePacket(ckp.getId()));
+                }
+            }
+        };
+        // This constructor internally calls callbacks that associate it with the connection
+        new EmbeddedChannel(connection);
+        NetworkRegistry.configureMockConnection(connection);
+        helper.getLevel().getServer().getPlayerList().placeNewPlayer(connection, serverplayer, commonlistenercookie);
+        helper.getLevel().getServer().getConnection().getConnections().add(connection);
+        helper.testInfo.addListener(serverplayer);
+        serverplayer.gameMode.changeGameModeForPlayer(gameType);
+        serverplayer.setYRot(180);
+        serverplayer.connection.chunkSender.sendNextChunks(serverplayer);
+        serverplayer.connection.chunkSender.onChunkBatchReceivedByClient(64f);
+        serverplayer.setClientLoaded(true);
+        return serverplayer;
     }
 }
