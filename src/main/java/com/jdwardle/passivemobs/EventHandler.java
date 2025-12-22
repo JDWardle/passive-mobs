@@ -32,6 +32,14 @@ public class EventHandler {
         PlayerManagerStore.remove(player.getUUID());
     }
 
+    // Need to recreate the player manager whenever a player respawns to get the
+    // new reference to their settings.
+    @SubscribeEvent
+    public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        Player player = event.getEntity();
+        PlayerManagerStore.replace(player.getUUID(), new PlayerManager(player.getData(PLAYER_SETTINGS)));
+    }
+
     // Handles progressing the player's aggression timer.
     @SubscribeEvent
     public static void onPrePlayerTick(PlayerTickEvent.Pre event) {
