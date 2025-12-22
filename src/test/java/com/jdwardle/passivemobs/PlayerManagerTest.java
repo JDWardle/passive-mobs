@@ -1,94 +1,132 @@
 package com.jdwardle.passivemobs;
 
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Zombie;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerManagerTest {
     @Test
     void isPlayerAggressive() {
-        PlayerManager manager = new PlayerManager();
+        PlayerManager manager = new PlayerManager(new PlayerSettings());
 
         assertFalse(manager.isPlayerAggressive());
 
-        manager.setPlayerAggressive(true);
+        //noinspection DataFlowIssue
+        manager.playerHurtEntity(new Zombie(null));
 
         assertTrue(manager.isPlayerAggressive());
-    }
-
-    @Test
-    void setPlayerAggressive() {
-        PlayerManager manager = new PlayerManager();
-
-        manager.setPlayerAggressive(true);
-        assertTrue(manager.isPlayerAggressive());
-        assertEquals(0, manager.getLastAggressionTimestamp());
-
-        manager.tick();
-
-        manager.setPlayerAggressive(false);
-        assertFalse(manager.isPlayerAggressive());
-        assertEquals(0, manager.getLastAggressionTimestamp());
-
-        manager.tick();
-
-        manager.setPlayerAggressive(true);
-        assertTrue(manager.isPlayerAggressive());
-        assertEquals(2, manager.getLastAggressionTimestamp());
     }
 
     @Test
     void tick() {
-        PlayerManager manager = new PlayerManager(2);
+        PlayerManager manager = new PlayerManager(new PlayerSettings(), 2);
 
         manager.tick();
 
         assertFalse(manager.isPlayerAggressive());
 
-        manager.setPlayerAggressive(true);
+        //noinspection DataFlowIssue
+        manager.playerHurtEntity(new Zombie(null));
+
+        // After 2 ticks player should no longer be aggressive.
         manager.tick();
 
         assertTrue(manager.isPlayerAggressive());
 
         manager.tick();
+
         assertFalse(manager.isPlayerAggressive());
     }
 
     @Test
-    void canBeTargeted() {
-        PlayerManager manager = new PlayerManager();
+    void canTargetPlayer() {
+        //noinspection DataFlowIssue
+        Entity target = new Zombie(null);
 
-        assertTrue(manager.canBeTargeted(AggressionLevel.NORMAL));
-        assertFalse(manager.canBeTargeted(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeTargeted(AggressionLevel.PEACEFUL));
+        PlayerSettings settings = new PlayerSettings();
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
 
-        manager.setPlayerAggressive(true);
-        assertTrue(manager.canBeTargeted(AggressionLevel.NORMAL));
-        assertTrue(manager.canBeTargeted(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeTargeted(AggressionLevel.PEACEFUL));
+        PlayerManager manager = new PlayerManager(settings, 2);
+        assertTrue(manager.canTargetPlayer(target));
 
-        manager.setPlayerAggressive(false);
-        assertTrue(manager.canBeTargeted(AggressionLevel.NORMAL));
-        assertFalse(manager.canBeTargeted(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeTargeted(AggressionLevel.PEACEFUL));
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertFalse(manager.canTargetPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
+
+        // Set player to aggressive by hurting the entity.
+        manager.playerHurtEntity(target);
+
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
+        assertTrue(manager.canTargetPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertTrue(manager.canTargetPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
+
+        // Deaggro after 2 ticks.
+        manager.tick();
+        manager.tick();
+
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
+        assertTrue(manager.canTargetPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertFalse(manager.canTargetPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
     }
 
     @Test
     void canBeDamaged() {
-        PlayerManager manager = new PlayerManager();
+        //noinspection DataFlowIssue
+        Entity target = new Zombie(null);
 
-        assertTrue(manager.canBeDamaged(AggressionLevel.NORMAL));
-        assertTrue(manager.canBeDamaged(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeDamaged(AggressionLevel.PEACEFUL));
+        PlayerSettings settings = new PlayerSettings();
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
 
-        manager.setPlayerAggressive(true);
-        assertTrue(manager.canBeDamaged(AggressionLevel.NORMAL));
-        assertTrue(manager.canBeDamaged(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeDamaged(AggressionLevel.PEACEFUL));
+        PlayerManager manager = new PlayerManager(settings);
+        assertTrue(manager.canHurtPlayer(target));
 
-        manager.setPlayerAggressive(false);
-        assertTrue(manager.canBeDamaged(AggressionLevel.NORMAL));
-        assertTrue(manager.canBeDamaged(AggressionLevel.PASSIVE));
-        assertFalse(manager.canBeDamaged(AggressionLevel.PEACEFUL));
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertTrue(manager.canHurtPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
+
+        // Set player to aggressive by hurting the entity.
+        manager.playerHurtEntity(target);
+
+        // No changes expected.
+
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
+        assertTrue(manager.canHurtPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertTrue(manager.canHurtPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
+
+        // Deaggro after 2 ticks.
+        manager.tick();
+        manager.tick();
+
+        // No changes expected, again.
+        settings.setAggressionLevel(AggressionLevel.NORMAL);
+        assertTrue(manager.canHurtPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PASSIVE);
+        assertTrue(manager.canHurtPlayer(target));
+
+        settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+        assertFalse(manager.canTargetPlayer(target));
     }
 }

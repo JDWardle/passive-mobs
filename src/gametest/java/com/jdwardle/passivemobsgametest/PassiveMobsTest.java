@@ -4,10 +4,22 @@ import com.jdwardle.passivemobs.AggressionLevel;
 import com.jdwardle.passivemobs.Config;
 import com.jdwardle.passivemobs.PassiveMobs;
 import com.jdwardle.passivemobs.PlayerSettings;
-
+import com.mojang.authlib.GameProfile;
+import com.mojang.brigadier.ParseResults;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.embedded.EmbeddedChannel;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
+import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
@@ -16,17 +28,22 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.network.registration.NetworkRegistry;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.conf.ClientConfiguration;
 import net.neoforged.testframework.conf.FrameworkConfiguration;
 import net.neoforged.testframework.gametest.EmptyTemplate;
+import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
 import net.neoforged.testframework.gametest.GameTest;
+import net.neoforged.testframework.gametest.GameTestPlayer;
 import net.neoforged.testframework.impl.MutableTestFramework;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import java.util.Objects;
+import java.util.UUID;
 
 @Mod(PassiveMobsTest.MODID)
 public class PassiveMobsTest {
@@ -68,6 +85,20 @@ public class PassiveMobsTest {
                 .thenSucceed());
     }
 
+    private static void setPlayerAggressionLevel(ExtendedGameTestHelper helper, ServerPlayer player, AggressionLevel aggressionLevel) {
+        try {
+            ParseResults<CommandSourceStack> results = helper.getLevel().getServer().getCommands().getDispatcher().parse("myaggression " + aggressionLevel.toString(), player.createCommandSourceStack());
+
+            helper.assertTrue(results.getContext().getNodes().size() == 2, "command should only have one node");
+
+            int output = helper.getLevel().getServer().getCommands().getDispatcher().execute(results);
+
+            helper.assertTrue(output == 1, "command should return 1");
+        } catch (CommandSyntaxException e) {
+            helper.fail(e.getMessage());
+        }
+    }
+
     @EmptyTemplate(floor = true)
     @GameTest(template = "empty")
     @TestHolder(
@@ -81,8 +112,7 @@ public class PassiveMobsTest {
                     helper.setNight();
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.NORMAL);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.NORMAL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
@@ -115,8 +145,7 @@ public class PassiveMobsTest {
                     helper.setNight();
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.PEACEFUL);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.PEACEFUL);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
@@ -159,8 +188,7 @@ public class PassiveMobsTest {
 
                     player.setPos(helper.absoluteVec(Vec3.atBottomCenterOf(new BlockPos(0, 0, 5))));
 
-                    PlayerSettings settings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-                    settings.setAggressionLevel(AggressionLevel.PASSIVE);
+                    setPlayerAggressionLevel(helper, player, AggressionLevel.PASSIVE);
 
                     Zombie entity = helper.spawn(EntityType.ZOMBIE, 5, 0, 0);
 
@@ -187,5 +215,45 @@ public class PassiveMobsTest {
                 // TODO: Figure out deaggro testing.
                 .thenExecute(test::pass)
                 .thenSucceed());
+    }
+
+    // Copy of the Neoforge makeTickingMockServerPlayerInLevel that allows for
+    // changing the mock player name.
+    public static GameTestPlayer makeTickingMockServerPlayerInLevel(ExtendedGameTestHelper helper, GameType gameType, String name) {
+        final CommonListenerCookie commonlistenercookie = CommonListenerCookie.createInitial(new GameProfile(UUID.randomUUID(), name), false);
+        final GameTestPlayer serverplayer = new GameTestPlayer(helper.getLevel().getServer(), helper.getLevel(), commonlistenercookie.gameProfile(), commonlistenercookie.clientInformation(), helper);
+        final Connection connection = new Connection(PacketFlow.SERVERBOUND) {
+            @Override
+            public void tick() {
+                super.tick();
+                serverplayer.resetLastActionTime();
+            }
+
+            @Override
+            public boolean isMemoryConnection() {
+                return true;
+            }
+
+            @Override
+            public void send(Packet<?> packet, @Nullable ChannelFutureListener listeners, boolean flush) {
+                super.send(packet, listeners, flush);
+                // Respond to keepalive packets instantly
+                if (packet instanceof ClientboundKeepAlivePacket ckp) {
+                    serverplayer.connection.handleKeepAlive(new ServerboundKeepAlivePacket(ckp.getId()));
+                }
+            }
+        };
+        // This constructor internally calls callbacks that associate it with the connection
+        new EmbeddedChannel(connection);
+        NetworkRegistry.configureMockConnection(connection);
+        helper.getLevel().getServer().getPlayerList().placeNewPlayer(connection, serverplayer, commonlistenercookie);
+        helper.getLevel().getServer().getConnection().getConnections().add(connection);
+        helper.testInfo.addListener(serverplayer);
+        serverplayer.gameMode.changeGameModeForPlayer(gameType);
+        serverplayer.setYRot(180);
+        serverplayer.connection.chunkSender.sendNextChunks(serverplayer);
+        serverplayer.connection.chunkSender.onChunkBatchReceivedByClient(64f);
+        serverplayer.setClientLoaded(true);
+        return serverplayer;
     }
 }
