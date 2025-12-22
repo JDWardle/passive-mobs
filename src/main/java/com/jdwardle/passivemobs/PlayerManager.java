@@ -2,6 +2,7 @@ package com.jdwardle.passivemobs;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Monster;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
@@ -11,8 +12,8 @@ public class PlayerManager {
     // configured aggression level.
     private Boolean aggressive;
 
-    // The players configured aggression level.
-    private AggressionLevel aggressionLevel;
+    // The players saved settings.
+    private final PlayerSettings playerSettings;
 
     private int tickCount;
 
@@ -22,15 +23,15 @@ public class PlayerManager {
     // This tracks the last tick that the player was set to aggressive.
     private int lastAggressionTick;
 
-    PlayerManager(AggressionLevel aggressionLevel, int deaggroTicks) {
+    PlayerManager(@NotNull PlayerSettings playerSettings, int deaggroTicks) {
         this.deaggroTicks = deaggroTicks;
         this.aggressive = false;
         this.lastAggressionTick = 0;
-        this.aggressionLevel = aggressionLevel;
+        this.playerSettings = playerSettings;
     }
 
-    PlayerManager(AggressionLevel aggressionLevel) {
-        this(aggressionLevel, Config.DEFAULT_DEAGGRO_TICKS.get());
+    PlayerManager(@NotNull PlayerSettings playerSettings) {
+        this(playerSettings, Config.DEFAULT_DEAGGRO_TICKS.get());
     }
 
     public Boolean isPlayerAggressive() {
@@ -45,9 +46,9 @@ public class PlayerManager {
         }
     }
 
-    public void setAggressionLevel(AggressionLevel aggressionLevel) {
-        this.aggressionLevel = aggressionLevel;
-    }
+//    public void setAggressionLevel(AggressionLevel aggressionLevel) {
+//        playerSettings.setAggressionLevel(aggressionLevel);
+//    }
 
     // This handles the aggression timer. Called on some sort of regular
     // interval, this will check the player tick count and compare it to their
@@ -73,7 +74,7 @@ public class PlayerManager {
             return true;
         }
 
-        switch (aggressionLevel) {
+        switch (playerSettings.getAggressionLevel()) {
             case AggressionLevel.NORMAL -> {
                 return true;
             }
@@ -96,7 +97,7 @@ public class PlayerManager {
             return true;
         }
 
-        switch (aggressionLevel) {
+        switch (playerSettings.getAggressionLevel()) {
             case AggressionLevel.NORMAL, AggressionLevel.PASSIVE -> {
                 return true;
             }

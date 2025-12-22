@@ -20,7 +20,7 @@ public class EventHandler {
         Player player = event.getEntity();
         PlayerSettings playerSettings = player.getData(PLAYER_SETTINGS);
 
-        PlayerManagerStore.computeIfAbsent(player.getUUID(), new PlayerManager(playerSettings.getAggressionLevel()));
+        PlayerManagerStore.computeIfAbsent(player.getUUID(), new PlayerManager(playerSettings));
 
         LOGGER.debug("Player {} joined with aggro level: {}", player.getDisplayName().getString(), playerSettings.getAggressionLevel());
     }

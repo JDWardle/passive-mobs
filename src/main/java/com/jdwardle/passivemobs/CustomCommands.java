@@ -101,10 +101,7 @@ public class CustomCommands {
             return 0;
         }
 
-        PlayerSettings playerSettings = player.getData(PassiveMobs.PLAYER_SETTINGS);
-        playerSettings.setAggressionLevel(level);
-        PlayerManagerStore.get(player.getUUID())
-                .ifPresent(manager -> manager.setAggressionLevel(level));
+        player.getData(PassiveMobs.PLAYER_SETTINGS).setAggressionLevel(level);
 
         source.sendSuccess(() -> Component.literal("Aggression level set to " + level.toString()), false);
         return 1;
